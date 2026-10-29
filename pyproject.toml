@@ -1,0 +1,25 @@
+[project]
+name = "mcp-idea-files"
+version = "0.1.0"
+description = "dev-companion: MCP server POC and \"Why did this fail?\" web app"
+authors = [
+    { name = "falguni.sinha", email = "falguni.sinha@genzeon.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "anthropic>=2.3.0",
+    "fastapi>=0.162.0",
+    "fastmcp>=4",
+    "uvicorn>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+asyncio_mode = "auto"

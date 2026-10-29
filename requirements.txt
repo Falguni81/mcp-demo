@@ -1,0 +1,10 @@
+# Runtime dependencies (mirrors pyproject.toml / uv.lock)
+anthropic>=2.3.0
+fastapi>=0.162.0
+fastmcp>=4
+uvicorn>=0.54.0
+
+# Dev / test dependencies (uncomment, or use requirements-dev.txt style install)
+# httpx>=0.28.1
+# pytest>=9.1.1
+# pytest-asyncio>=1.4.0

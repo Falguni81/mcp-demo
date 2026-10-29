@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why did this fail?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #eef1f5; --surface: #ffffff; --ink: #1c2433; --muted: #5b6577;
+    --accent: #1f5fad; --on-accent: #ffffff; --rule: #d3d9e2;
+    --bad: #b4232a; --ok: #2e7d4f; --code-bg: #f4f6f9;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141a24; --surface: #1b2330; --ink: #e4e9f0; --muted: #9aa5b5;
+      --accent: #7fb0f0; --on-accent: #0f1622; --rule: #2c3646;
+      --bad: #f07a7f; --ok: #6fcb94; --code-bg: #222c3b;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.55 var(--sans);
+  }
+  main { max-width: 46rem; margin: 0 auto; padding: 3.5rem 1.25rem 4rem; }
+  h1 { font-size: 2rem; line-height: 1.15; font-weight: 600; margin: 0 0 .5rem; letter-spacing: -.01em; }
+  .lede { color: var(--muted); margin: 0 0 2rem; max-width: 38rem; }
+
+  .ask { display: flex; gap: .75rem; align-items: flex-end; flex-wrap: wrap; }
+  .field { flex: 1 1 18rem; position: relative; }
+  label { display: block; font-weight: 500; margin-bottom: .35rem; }
+  input {
+    width: 100%; font: 1rem var(--mono); color: var(--ink); background: var(--surface);
+    border: 1px solid var(--rule); border-radius: 6px; padding: .7rem .8rem;
+  }
+  input:focus-visible, button:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+  button {
+    font: 600 1rem var(--sans); color: var(--on-accent); background: var(--accent);
+    border: 0; border-radius: 6px; padding: .75rem 1.4rem; cursor: pointer;
+  }
+  button:disabled { opacity: .55; cursor: progress; }
+
+  .suggestions {
+    position: absolute; z-index: 5; left: 0; right: 0; top: 100%; margin: .25rem 0 0; padding: .25rem 0;
+    list-style: none; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px;
+    max-height: 15rem; overflow-y: auto; box-shadow: 0 8px 24px -12px rgba(20, 30, 50, .35);
+  }
+  .suggestions li { font-family: var(--mono); padding: .45rem .8rem; cursor: pointer; }
+  .suggestions li[aria-selected="true"], .suggestions li:hover { background: var(--code-bg); color: var(--accent); }
+  .hint { color: var(--muted); font-size: .875rem; margin: .4rem 0 0; }
+
+  .status { margin: 2rem 0 0; min-height: 1.5em; color: var(--muted); }
+  .status.error { color: var(--bad); }
+
+  /* The trail: every MCP call, in the order it happened. */
+  .trail { list-style: none; margin: 1.25rem 0 0; padding: 0 0 0 1.5rem; border-left: 2px solid var(--rule); }
+  .trail:empty { display: none; }
+  .step { position: relative; padding: 0 0 1.25rem; }
+  .step::before {
+    content: ""; position: absolute; left: calc(-1.5rem - 6px); top: .45rem;
+    width: 10px; height: 10px; border-radius: 50%; background: var(--surface); border: 2px solid var(--muted);
+  }
+  .step.done::before { background: var(--ok); border-color: var(--ok); }
+  .step.failed::before { background: var(--bad); border-color: var(--bad); }
+  .step.pending::before { border-color: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 25%, transparent); } }
+  .step-title { font-weight: 500; }
+  .step-title code { font: 500 .95rem var(--mono); color: var(--accent); }
+  .args { display: block; font: .85rem var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+  details { margin-top: .3rem; }
+  summary { cursor: pointer; color: var(--muted); font-size: .875rem; }
+  pre {
+    font: .8rem/1.5 var(--mono); background: var(--code-bg); border-radius: 6px;
+    padding: .75rem; margin: .4rem 0 0; overflow-x: auto; white-space: pre-wrap; max-height: 20rem;
+  }
+
+  .answer {
+    margin-top: 1.5rem; background: var(--surface); border: 1px solid var(--rule);
+    border-radius: 8px; padding: 1.25rem 1.5rem;
+  }
+  .answer h2 { font-size: 1.25rem; margin: 0 0 .75rem; }
+  .answer h3 { font-size: 1.05rem; margin: 1.25rem 0 .4rem; }
+  .answer p, .answer ul, .answer ol { margin: 0 0 .75rem; }
+  .answer code { font: .9em var(--mono); background: var(--code-bg); padding: .1em .3em; border-radius: 4px; }
+
+  @media (prefers-reduced-motion: reduce) { .step.pending::before { animation: none; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Why did this fail?</h1>
+  <p class="lede">Pick a log file. Claude reads it through your dev-companion MCP server, checks recent commits, and explains the most likely root cause.</p>
+
+  <div class="ask">
+    <div class="field">
+      <label for="log">Log file</label>
+      <input id="log" type="text" autocomplete="off" spellcheck="false" placeholder="app.log"
+             role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="suggestions">
+      <ul id="suggestions" class="suggestions" role="listbox" hidden></ul>
+    </div>
+    <button id="run" type="button">Diagnose</button>
+  </div>
+  <p class="hint">Suggestions come from the server’s log folder as you type.</p>
+
+  <p id="status" class="status" role="status" aria-live="polite"></p>
+  <ol id="trail" class="trail" aria-label="What Claude did"></ol>
+  <section id="answer" class="answer" hidden></section>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const input = $("#log"), list = $("#suggestions"), btn = $("#run");
+const statusEl = $("#status"), trail = $("#trail"), answer = $("#answer");
+
+/* ---------- autocomplete via MCP completion ---------- */
+let items = [], active = -1, timer, seq = 0;
+
+async function suggest() {
+  const mine = ++seq;
+  try {
+    const r = await fetch("/api/complete?value=" + encodeURIComponent(input.value));
+    const d = await r.json();
+    if (mine !== seq || document.activeElement !== input) return; // ignore stale replies
+    items = d.values || []; active = -1; render();
+  } catch { items = []; render(); }
+}
+function render() {
+  list.replaceChildren(...items.map((v, i) => {
+    const li = document.createElement("li");
+    li.id = "opt-" + i; li.role = "option"; li.textContent = v;
+    li.setAttribute("aria-selected", String(i === active));
+    li.addEventListener("mousedown", (e) => { e.preventDefault(); choose(v); });
+    return li;
+  }));
+  list.hidden = !items.length;
+  input.setAttribute("aria-expanded", String(!!items.length));
+  if (active >= 0) {
+    input.setAttribute("aria-activedescendant", "opt-" + active);
+    list.children[active].scrollIntoView({ block: "nearest" });
+  } else input.removeAttribute("aria-activedescendant");
+}
+function choose(v) { input.value = v; close(); }
+function close() { items = []; active = -1; render(); }
+
+input.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(suggest, 150); });
+input.addEventListener("focus", suggest);
+input.addEventListener("blur", () => setTimeout(close, 100));
+input.addEventListener("keydown", (e) => {
+  const open = items.length > 0;
+  if (e.key === "ArrowDown" && open) { e.preventDefault(); active = (active + 1) % items.length; render(); }
+  else if (e.key === "ArrowUp" && open) { e.preventDefault(); active = (active - 1 + items.length) % items.length; render(); }
+  else if (e.key === "Escape") close();
+  else if (e.key === "Enter") {
+    e.preventDefault();
+    if (open && active >= 0) choose(items[active]); else { close(); run(); }
+  }
+});
+btn.addEventListener("click", run);
+
+/* ---------- run the prompt, stream the trail ---------- */
+let current = null, toolCount = 0;
+
+function addStep(titleHtml, argsText) {
+  const li = document.createElement("li");
+  li.className = "step pending";
+  li.innerHTML = `<div class="step-title">${titleHtml}</div>`;
+  if (argsText) {
+    const a = document.createElement("span");
+    a.className = "args"; a.textContent = argsText; li.appendChild(a);
+  }
+  trail.appendChild(li);
+  return li;
+}
+function addDetails(li, summary, text) {
+  const d = document.createElement("details");
+  d.innerHTML = `<summary>${summary}</summary>`;
+  const pre = document.createElement("pre"); pre.textContent = text || "(empty)";
+  d.appendChild(pre); li.appendChild(d);
+}
+function setStatus(text, isError = false) {
+  statusEl.textContent = text; statusEl.classList.toggle("error", isError);
+}
+
+function handle(ev) {
+  if (ev.type === "prompt") {
+    const li = addStep("Loaded the <code>explain_failure</code> prompt");
+    li.className = "step done";
+    addDetails(li, "Show prompt", ev.text);
+    setStatus("Claude is investigating…");
+  } else if (ev.type === "tool_call") {
+    toolCount++;
+    const args = Object.entries(ev.input || {}).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(", ");
+    current = addStep(`Called <code>${ev.name.replace(/[^\w-]/g, "")}</code>`, args);
+  } else if (ev.type === "tool_result" && current) {
+    current.className = "step " + (ev.error ? "failed" : "done");
+    addDetails(current, ev.error ? "Show error" : "Show result", ev.preview);
+    current = null;
+  } else if (ev.type === "answer") {
+    answer.innerHTML = "<h2>Diagnosis</h2>" + markdown(ev.text);
+    answer.hidden = false;
+    setStatus(`Done. Claude made ${toolCount} tool call${toolCount === 1 ? "" : "s"}.`);
+  } else if (ev.type === "error") {
+    if (current) { current.className = "step failed"; current = null; }
+    setStatus(ev.message, true);
+  }
+}
+
+async function run() {
+  const file = input.value.trim();
+  if (!file) { setStatus("Choose a log file to diagnose.", true); input.focus(); return; }
+  btn.disabled = true; trail.replaceChildren(); answer.hidden = true; toolCount = 0; current = null;
+  setStatus(`Loading the prompt for ${file}…`);
+  try {
+    const res = await fetch("/api/run", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ log_file: file }),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      throw new Error(d.detail || `The server returned HTTP ${res.status}.`);
+    }
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+        if (line) handle(JSON.parse(line));
+      }
+    }
+  } catch (err) {
+    handle({ type: "error", message: "Couldn’t reach the server: " + err.message });
+  } finally { btn.disabled = false; }
+}
+
+/* ---------- tiny markdown renderer for the answer ---------- */
+function markdown(src) {
+  const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const inline = (s) => esc(s).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  let html = "", listTag = null, inCode = false, code = [];
+  const endList = () => { if (listTag) { html += `</${listTag}>`; listTag = null; } };
+  for (const line of src.split("\n")) {
+    if (line.trim().startsWith("```")) {
+      if (inCode) { html += `<pre>${esc(code.join("\n"))}</pre>`; code = []; inCode = false; }
+      else { endList(); inCode = true; }
+      continue;
+    }
+    if (inCode) { code.push(line); continue; }
+    const h = line.match(/^#{1,6}\s+(.*)/), ul = line.match(/^\s*[-*]\s+(.*)/), ol = line.match(/^\s*\d+\.\s+(.*)/);
+    if (h) { endList(); html += `<h3>${inline(h[1])}</h3>`; }
+    else if (ul || ol) {
+      const tag = ul ? "ul" : "ol";
+      if (listTag !== tag) { endList(); html += `<${tag}>`; listTag = tag; }
+      html += `<li>${inline((ul || ol)[1])}</li>`;
+    } else if (line.trim()) { endList(); html += `<p>${inline(line)}</p>`; }
+    else endList();
+  }
+  endList();
+  if (inCode) html += `<pre>${esc(code.join("\n"))}</pre>`;
+  return html;
+}
+</script>
+</body>
+</html>
