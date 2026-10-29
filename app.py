@@ -15,6 +15,7 @@ Setup (in the same folder as server.py and index.html):
 """
 
 import json
+import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -34,6 +35,9 @@ MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5-5")
 MAX_TURNS = 8
 # Least privilege: this page only diagnoses, so it can't run tests or anything else.
 ALLOWED_TOOLS = {"search_logs", "recent_commits", "changed_files", "check_health", "ci_status"}
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+log = logging.getLogger("dev_companion.app")
 
 claude = AsyncAnthropic()  # reads ANTHROPIC_API_KEY
 mcp_client = Client(mcp)
@@ -75,6 +79,7 @@ async def run_agent(log_file: str):
     def event(**data) -> str:
         return json.dumps(data, default=str) + "\n"
 
+    log.info("Diagnose started for log_file=%s", log_file)
     try:
         # 1. MCP prompt: the server owns the instructions, the app just fills the argument.
         prompt = await mcp_client.get_prompt(PROMPT_NAME, {PROMPT_ARG: log_file})
@@ -103,6 +108,7 @@ async def run_agent(log_file: str):
             messages.append({"role": "assistant", "content": resp.content})
 
             if resp.stop_reason != "tool_use":
+                log.info("Diagnose finished for log_file=%s (stop_reason=%s)", log_file, resp.stop_reason)
                 yield event(type="answer", text=_text(resp.content))
                 return
 
@@ -110,6 +116,7 @@ async def run_agent(log_file: str):
             for block in resp.content:
                 if block.type != "tool_use":
                     continue
+                log.info("Tool call: %s", block.name)
                 yield event(type="tool_call", name=block.name, input=block.input)
                 if block.name not in ALLOWED_TOOLS:
                     out, is_error = f"Tool '{block.name}' is not available here.", True
@@ -123,8 +130,10 @@ async def run_agent(log_file: str):
                                 "content": out[:8000] or "(empty)", "is_error": is_error})
             messages.append({"role": "user", "content": results})
 
+        log.warning("Diagnose hit MAX_TURNS=%d for log_file=%s", MAX_TURNS, log_file)
         yield event(type="error", message=f"Stopped after {MAX_TURNS} rounds without a final answer.")
     except Exception as e:  # noqa: BLE001
+        log.exception("Diagnose failed for log_file=%s", log_file)
         yield event(type="error", message=str(e))
 
 

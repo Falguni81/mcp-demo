@@ -131,8 +131,8 @@ Then confirm with `claude mcp list`. In a new Claude Code session, MCP resources
 
 ```bash
 uv sync
-export ANTHROPIC_API_KEY=your-key          # PowerShell: $env:ANTHROPIC_API_KEY="your-key"
-uv run uvicorn app:app --reload            # then open http://localhost:8000
+# put ANTHROPIC_API_KEY=your-key in .env (git-ignored)
+uv run uvicorn app:app --reload --env-file .env   # then open http://localhost:8000
 uv run pytest -q                           # run the smoke tests
 uv run fastmcp dev server.py               # explore the server in the MCP Inspector
 ```
